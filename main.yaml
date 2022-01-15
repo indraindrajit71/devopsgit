@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # This name uniquely identifies the Deployment
+  name: minio-deployment
+  labels:
+    app: minio 
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  replicas: 5    
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        # Label is used as selector in the service.
+        app: minio
+    spec:
+      # Refer to the PVC created earlier
+      volumes:
+      - name: storage1
+        persistentVolumeClaim:
+          # Name of the PVC created earlier
+                claimName: minio-pv-claim1
+      containers:
+      - name: minio
+        # Pulls the default Minio image from Docker Hub
+        image: minio/minio
+        args:
+        - server
+        - /storage1
+        env:
+        # Minio access key and secret key
+        - name: MINIO_ACCESS_KEY
+          value: "minio0123"
+        - name: MINIO_SECRET_KEY
+          value: "minio0123"
+        ports:
+        - containerPort: 9000
+        # Mount the volume into the pod
+        volumeMounts:
+        - name: storage1 # must match the volume name, above
+          mountPath: "/storage1"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pv-claim1
+  labels:
+    app: minio-storage-claim1
+spec:
+  storageClassName: gp2
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+  labels:
+    app: minio
+spec:
+  ports:
+    - port: 9000
+      nodePort: 30389
+      protocol: TCP
+  selector:
+    app: minio
+  sessionAffinity: None
+  type: NodePort
